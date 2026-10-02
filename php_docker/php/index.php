@@ -1,8 +1,18 @@
+<?php
+// ตรวจ header ที่ Nginx ส่งมา ถ้ามีเป็น NGINX ถ้าไม่มีเป็น APACHE
+$server_name = (isset($_SERVER['HTTP_X_SERVER_TYPE']) && $_SERVER['HTTP_X_SERVER_TYPE'] === 'NGINX')
+    ? 'NGINX'
+    : 'APACHE';
+$page_title = 'Create Record - ' . $server_name;
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Create Record</title>
+<title><?php echo htmlspecialchars($page_title); ?></title>
+<meta property="og:title" content="<?php echo htmlspecialchars($page_title); ?>">
+<meta property="og:description" content="Contact form running on <?php echo htmlspecialchars($server_name); ?>">
+<meta name="description" content="Contact form running on <?php echo htmlspecialchars($server_name); ?>">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.css">
 <style type="text/css">
 .wrapper{ width: 500px; margin: 0 auto; }
@@ -15,15 +25,6 @@
 </style>
 </head>
 <body>
-
-<?php
-// เช็ค Header พิเศษที่ส่งมาจาก Nginx ถ้ามีให้เป็น NGINX ถ้าไม่มีให้เป็น APACHE
-if (isset($_SERVER['HTTP_X_SERVER_TYPE']) && $_SERVER['HTTP_X_SERVER_TYPE'] === 'NGINX') {
-    $server_name = 'NGINX';
-} else {
-    $server_name = 'APACHE';
-}
-?>
 
 <div class="watermark"><?php echo $server_name; ?></div>
 
