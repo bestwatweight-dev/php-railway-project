@@ -1,5 +1,6 @@
 FROM nginx:alpine
 
-# ก๊อปปี้ default.conf ไปไว้ในโฟลเดอร์ templates
-# เพื่อให้ Nginx ดึงตัวแปร $PORT จาก Railway ไปใส่แทนที่อัตโนมัติ
+# บังคับเปลี่ยนเฉพาะตัวแปร PORT เพื่อไม่ให้ $host ของ Nginx เสียหาย
+ENV NGINX_ENVSUBST_FILTER=PORT
+
 COPY default.conf /etc/nginx/templates/default.conf.template
