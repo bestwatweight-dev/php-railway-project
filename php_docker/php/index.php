@@ -17,8 +17,12 @@
 <body>
 
 <?php
-// กำหนดค่า Server Name ให้ตรงกับฝั่งนี้โดยตรง (Apache) เพื่อป้องกันปัญหาเรื่องพอร์ตบน Cloud
-$server_name = 'APACHE';
+// เช็ค Header พิเศษที่ส่งมาจาก Nginx ถ้ามีให้เป็น NGINX ถ้าไม่มีให้เป็น APACHE
+if (isset($_SERVER['HTTP_X_SERVER_TYPE']) && $_SERVER['HTTP_X_SERVER_TYPE'] === 'NGINX') {
+    $server_name = 'NGINX';
+} else {
+    $server_name = 'APACHE';
+}
 ?>
 
 <div class="watermark"><?php echo $server_name; ?></div>
