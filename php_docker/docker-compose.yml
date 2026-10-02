@@ -1,0 +1,78 @@
+version: '3'
+services:
+  # เว็บ Apache (พอร์ต 8000)
+  php-environment:
+    container_name: php-apache
+    build:
+      context: ./php
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    volumes:
+      - ./php:/var/www/html/
+    ports:
+      - 8000:80
+
+  # เว็บ Nginx (พอร์ต 8082)
+  nginx-web:
+    image: nginx:latest
+    container_name: nginx-server
+    restart: always
+    ports:
+      - "8082:80"
+    volumes:
+      - ./php:/var/www/html/
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - db-nginx
+      - php-environment
+
+  # ฐานข้อมูลสำหรับ Apache (พอร์ต 9906)
+  db:
+    container_name: db
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ROOT_PASSWORD
+      MYSQL_DATABASE: php-app
+      MYSQL_USER: USER
+      MYSQL_PASSWORD: PASS
+    ports:
+      - "9906:3306"
+
+  # ฐานข้อมูลสำหรับ Nginx (พอร์ต 9907)
+  db-nginx:
+    container_name: db-nginx
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ROOT_PASSWORD
+      MYSQL_DATABASE: php-app-nginx
+      MYSQL_USER: USER
+      MYSQL_PASSWORD: PASS
+    ports:
+      - "9907:3306"
+
+  # phpMyAdmin ของ Apache (พอร์ต 8081)
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: phpmyadmin
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+    restart: always
+    ports:
+      - 8081:80
+
+  # phpMyAdmin ของ Nginx (พอร์ต 8083)
+  phpmyadmin-nginx:
+    image: phpmyadmin
+    container_name: phpmyadmin-nginx
+    links:
+      - db-nginx
+    environment:
+      PMA_HOST: db-nginx
+    restart: always
+    ports:
+      - 8083:80
