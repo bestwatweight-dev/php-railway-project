@@ -1,43 +1,49 @@
 <?php
-// ตรวจสอบว่ารันอยู่บน Railway หรือ Local 
-// บน Railway เราจะแยก Service ผ่าน Environment Variables หรือชื่อ Host ที่เชื่อมต่อ
-$host = getenv('MYSQLHOST') ?: 'db';
+// ตั้งค่าตัวแปรเชื่อมต่อ Database โดยดึงจาก Environment ของ Railway (ถ้ามี)
+$host = getenv('MYSQLHOST') ?: 'localhost';
 $dbn  = getenv('MYSQLDATABASE') ?: 'php-app';
-$user = getenv('MYSQLUSER') ?: 'USER';
-$pass = getenv('MYSQLPASSWORD') ?: 'PASS';
+$user = getenv('MYSQLUSER') ?: 'root';
+$pass = getenv('MYSQLPASSWORD') ?: '';
 $port = getenv('MYSQLPORT') ?: '3306';
 
-$conn = new mysqli($host, $user, $pass, $dbn, $port);
+// ลองเชื่อมต่อฐานข้อมูลแบบระวังข้อผิดพลาด (ไม่ให้เว็บพังถ้าต่อไม่ได้)
+$conn = @new mysqli($host, $user, $pass, $dbn, $port);
 
+$db_connected = true;
 if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-} else {
-    // แสดงผลแจ้งสถานะการเชื่อมต่อพร้อมบอก Host ที่กำลังใช้งานจริง
-    echo "Connected to MySQL server successfully! (Host: $host, Port: $port)<br>";
+    $db_connected = false;
 }
 
 if(isset($_POST['submit'])) {
-    $name = $_POST['name'];
-    $email = $_POST['email'];
-    $mobile = $_POST['mobile'];
+    if ($db_connected) {
+        $name = $_POST['name'];
+        $email = $_POST['email'];
+        $mobile = $_POST['mobile'];
 
-    $sql = "INSERT INTO users (name, email, mobile) VALUES ('$name', '$email', '$mobile')";
-    if (mysqli_query($conn, $sql)) {
-        echo "<p style='color: green;'>New record has been added successfully!</p>";
+        $sql = "INSERT INTO users (name, email, mobile) VALUES ('$name', '$email', '$mobile')";
+        if (mysqli_query($conn, $sql)) {
+            echo "<p style='color: green;'>New record has been added successfully!</p>";
+        } else {
+            echo "Error: " . $sql . ":-" . mysqli_error($conn);
+        }
     } else {
-        echo "Error: " . $sql . ":-" . mysqli_error($conn);
+        echo "<p style='color: red;'>Database not connected. Cannot insert data.</p>";
     }
 }
 
-// ดึงข้อมูลมาแสดงผล
-$sql = 'SELECT * FROM users';
+// ดึงข้อมูลมาแสดงผล (ถ้าต่อ Database ได้)
 $users = [];
-if ($result = $conn->query($sql)) {
-    while ($data = $result->fetch_object()) {
-        $users[] = $data;
+if ($db_connected) {
+    // เช็คเผื่อว่ายังไม่ได้สร้างตาราง users
+    $sql = 'SELECT * FROM users';
+    if ($result = @$conn->query($sql)) {
+        while ($data = $result->fetch_object()) {
+            $users[] = $data;
+        }
     }
 }
 
+// ส่วนแสดงผลข้อมูลด้านล่าง
 echo "<h4>Registered Users:</h4>";
 if (!empty($users)) {
     foreach ($users as $user_item) {
@@ -45,8 +51,10 @@ if (!empty($users)) {
         echo "<br>";
     }
 } else {
-    echo "No records found.";
+    echo "No records found (or Database not connected yet).";
 }
 
-$conn->close();
+if ($db_connected) {
+    $conn->close();
+}
 ?>
