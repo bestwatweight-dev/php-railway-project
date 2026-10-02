@@ -1,60 +1,75 @@
 <?php
-// ตั้งค่าตัวแปรเชื่อมต่อ Database โดยดึงจาก Environment ของ Railway (ถ้ามี)
-$host = getenv('MYSQLHOST') ?: 'localhost';
-$dbn  = getenv('MYSQLDATABASE') ?: 'php-app';
-$user = getenv('MYSQLUSER') ?: 'root';
-$pass = getenv('MYSQLPASSWORD') ?: '';
-$port = getenv('MYSQLPORT') ?: '3306';
+$host = getenv('PGHOST')     ?: 'localhost';
+$port = getenv('PGPORT')     ?: '5432';
+$dbn  = getenv('PGDATABASE') ?: 'postgres';
+$user = getenv('PGUSER')     ?: 'postgres';
+$pass = getenv('PGPASSWORD') ?: '';
 
-// ลองเชื่อมต่อฐานข้อมูลแบบระวังข้อผิดพลาด (ไม่ให้เว็บพังถ้าต่อไม่ได้)
-$conn = @new mysqli($host, $user, $pass, $dbn, $port);
+function e($s) {
+    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
 
+$pdo = null;
 $db_connected = true;
-if ($conn->connect_error) {
+try {
+    $pdo = new PDO(
+        "pgsql:host=$host;port=$port;dbname=$dbn",
+        $user,
+        $pass,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    // แยกตารางของเว็บออกจากของ Activepieces
+    $pdo->exec("CREATE SCHEMA IF NOT EXISTS phpapp");
+    $pdo->exec("SET search_path TO phpapp");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL,
+        mobile VARCHAR(30) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+} catch (PDOException $ex) {
+    error_log('DB error: ' . $ex->getMessage());
     $db_connected = false;
 }
 
-if(isset($_POST['submit'])) {
-    if ($db_connected) {
-        $name = $_POST['name'];
-        $email = $_POST['email'];
-        $mobile = $_POST['mobile'];
-
-        $sql = "INSERT INTO users (name, email, mobile) VALUES ('$name', '$email', '$mobile')";
-        if (mysqli_query($conn, $sql)) {
-            echo "<p style='color: green;'>New record has been added successfully!</p>";
-        } else {
-            echo "Error: " . $sql . ":-" . mysqli_error($conn);
-        }
-    } else {
+if (isset($_POST['submit'])) {
+    if (!$db_connected) {
         echo "<p style='color: red;'>Database not connected. Cannot insert data.</p>";
+    } else {
+        $name   = trim($_POST['name']   ?? '');
+        $email  = trim($_POST['email']  ?? '');
+        $mobile = trim($_POST['mobile'] ?? '');
+
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $mobile === '') {
+            echo "<p style='color: red;'>กรุณากรอกข้อมูลให้ครบและอีเมลให้ถูกต้อง</p>";
+        } else {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO users (name, email, mobile) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $email, $mobile]);
+                echo "<p style='color: green;'>New record has been added successfully!</p>";
+            } catch (PDOException $ex) {
+                error_log('Insert failed: ' . $ex->getMessage());
+                echo "<p style='color: red;'>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</p>";
+            }
+        }
     }
 }
 
-// ดึงข้อมูลมาแสดงผล (ถ้าต่อ Database ได้)
 $users = [];
 if ($db_connected) {
-    // เช็คเผื่อว่ายังไม่ได้สร้างตาราง users
-    $sql = 'SELECT * FROM users';
-    if ($result = @$conn->query($sql)) {
-        while ($data = $result->fetch_object()) {
-            $users[] = $data;
-        }
+    try {
+        $users = $pdo->query("SELECT name, email, mobile FROM users ORDER BY id DESC")->fetchAll(PDO::FETCH_OBJ);
+    } catch (PDOException $ex) {
+        error_log('Select failed: ' . $ex->getMessage());
     }
 }
 
-// ส่วนแสดงผลข้อมูลด้านล่าง
 echo "<h4>Registered Users:</h4>";
 if (!empty($users)) {
-    foreach ($users as $user_item) {
-        echo $user_item->name . " | " . $user_item->email . " | " . $user_item->mobile;
-        echo "<br>";
+    foreach ($users as $u) {
+        echo e($u->name) . " | " . e($u->email) . " | " . e($u->mobile) . "<br>";
     }
 } else {
     echo "No records found (or Database not connected yet).";
 }
-
-if ($db_connected) {
-    $conn->close();
-}
-?>
